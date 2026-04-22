@@ -1,0 +1,1 @@
+Warning: This file uses VirtualAllocEx and CreateRemoteThread to steal your wallet.dat and bitcoin!
