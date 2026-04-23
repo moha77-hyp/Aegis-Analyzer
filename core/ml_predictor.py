@@ -1,30 +1,61 @@
-import joblib
-import numpy as np
 import os
+import joblib
+import pandas as pd
+import numpy as np
 
-class MLPredictor:
-    def __init__(self, model_path: str = "assets/models/malware_rf_model.pkl"):
-        if not os.path.exists(model_path):
-            raise FileExistsError(f"AI Model not found at {model_path}. Did you run train_model.py??!")
-        
-        self.model = joblib.load(model_path)
+class MLPrediction:
+    def __init__(self):
+        ####
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.model_path = os.path.join(base_dir, "assets", "models", "aegis_rf_model.pkl")
+        self.scaler_path = os.path.join(base_dir, "assets", "models", "aegis_scaler.pkl")
 
-    def predict(self, features: dict) -> dict:
+        self.model = None
+        self.scaler = None
+
+        self._load_assets()
+
+    def _load_assets(self):
         try:
-            avg_entropy = features.get('avg_entropy', 0.0)
-            num_section = features.get('num_sections', 0)
-            num_imports = features.get('num_imports', 0)
-            file_size = features.get('file_size', 0)
+            if os.path.exists(self.model_path) and os.path.exists(self.scaler_path):
+                self.model = joblib.load(self.model_path)
+                self.scaler = joblib.load(self.scaler_path)
 
-            feature_vector = np.array([[avg_entropy, num_section, num_imports, file_size]])
+            else:
+                print(f"[!] Warining: ML assets not found at {self.model_path}. Please run train_model.py first.")
+        
+        except Exception as e:
+            print(f"[!] Critical error loading ML models: {e}")
 
-            is_malware = self.model.predict(feature_vector)[0]
-            probability = self.model.predict_proba(feature_vector)[0]
+    def predict(self, features_dict):
+        if not self.model or not self.scaler:
+            return {"error": "Ml model not loaded", "malware_probability": 0.0, "is_malicious": False}
+        
+        expected_features = [
+            'entropy_mean', 'entropy_max', 'size_of_code', 'size_of_image',
+           'virtual_size_diff_mean' , 'imports_count', 'exports_count',
+            'suspicious_imports_count', 'number_of_sections',
+            'number_of_executable_sections', 'has_debug_info',
+            'is_packed_heuristic', 'machine_type', 'dll_characteristics',
+            'major_linker_version', 'resources_count'
+        ]
+    
+        safe_features = {k: features_dict.get(k, 0) for k in expected_features}
 
-            return {
-                "is_malware": bool(is_malware == 1),
-                "malware_probability": round(probability[1] * 100, 2),
-                "safe_probability": round(probability[0] * 100, 2)
+        try:
+            df = pd.DataFrame([safe_features])
+
+            scaled_features = self.scaler.transform(df)
+
+            prob = self.model.predict_proba(scaled_features)[0][1]
+
+            is_malicious = bool(prob >= 0.60)
+
+            return{
+                "malware_probability": round(prob * 100, 2),
+                "is_malicious": is_malicious,
+                "status": "success"
             }
         except Exception as e:
-            raise Exception(f"AI Prediction faild: {str(e)}")
+            print(f"[- Eroor during ML prediction: {e}]")
+            return {"error": str(e), "malware_probability": 0.0, "is_malicious": False}
