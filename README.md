@@ -1,64 +1,53 @@
-# Aegis Static Malware Analyzer
+Aegis - Static Malware Analyzer
+I built this tool to help with fast triage for Windows PE files. The main idea behind Aegis is to analyze suspicious files safely without any risk to the host machine.
 
-A static malware analysis pipeline and triage dashboard built with Python and Streamlit. 
+To make it very secure, I designed the analyzer to be "memory-resident". This means when you upload a file, it goes directly to the byte buffer and the code never write it to the hard drive. This prevents any accidental execution of the malware during analysis.
 
-The primary goal of Aegis is to perform rapid, initial triage of Windows executables (PE files) securely. To prevent accidental execution or host compromise, the analyzer is strictly memory-resident—uploaded files are read directly into byte buffers and are never written to the host filesystem.
+How it works?
+The project is divided into few core modules that work together:
 
-## Architecture & Core Modules
+PE Parser (pe_extractor.py): This part read the PE header from the memory directly. I made it extract more than 15 features like section entropy and raw/virtual size to find if the file is packed or not.
 
-Aegis evaluates potential threats using a hybrid approach (Deterministic + Heuristic):
+YARA Scanner: I used yara-python to check the file against known signatures. It's very fast because it scan the raw bytes in the RAM.
 
-1. **In-Memory PE Parser (`pe_extractor.py`)**: 
-   Parses the PE header directly from the byte stream. It extracts 15+ structural features including section entropy, import/export counts, and packing heuristics (e.g., raw vs. virtual size discrepancies).
-2. **YARA Scanning Engine (`yara_engine.py`)**: 
-   Compiles and matches YARA rules against the raw byte buffer. Used for deterministic signature matching (e.g., identifying standard EICAR strings or specific APT signatures).
-3. **Machine Learning Predictor (`ml_predictor.py`)**: 
-   A Random Forest classifier that evaluates the features extracted by the PE Parser to flag zero-day or heavily obfuscated anomalies based on structural deviations.
-4. **Behavioral & IoC Extraction**:
-   - Maps identified suspicious Windows APIs (e.g., `VirtualAllocEx`) to MITRE ATT&CK tactics.
-   - Regex-based engine to decode and extract basic Indicators of Compromise (IPv4, URLs, Registry Keys) from ASCII and UTF-16 strings.
+ML Prediction: There is a Random Forest model inside ml_predictor.py. It looks at the features from the PE parser to flag any strange things that don't match standard signatures (Zero-days).
 
-## Installation & Triage Setup
+IoC & Behavior: The tool also look for suspicious Windows APIs like VirtualAllocEx and try to map them to MITRE ATT&CK tactics. Also it uses Regex to find IPs and URLs hidden in the strings.
 
-### Prerequisites
-- Python 3.8+
-- Required packages: `pefile`, `yara-python`, `scikit-learn`, `pandas`, `streamlit`, `plotly`.
+Instaltion & Setup
+Requirements:
+You need Python 3.8 and some libaries: pefile, yara-python, scikit-learn, streamlit.
 
-### Setup
-1. Clone the repository:
-   ```bash
-   git clone [https://github.com/moha77-hyp/Aegis-Analyzer.git](https://github.com/moha77-hyp/Aegis-Analyzer.git)
-   cd Aegis-Analyzer
-Install dependencies:
+Steps:
+Clone the repo:
+git clone https://github.com/moha77-hyp/Aegis-Analyzer.git
 
-Bash
+Install the requirements:
 pip install -r requirements.txt
-Generate the baseline ML models:
-(Note: The current repository uses a synthetic dataset generator to build the initial .pkl files for the Proof of Concept).
 
-Bash
+Train the PoC model:
 python train_model.py
-Spin up the Streamlit dashboard:
+(Note: right now it uses synthetic data just to show how the pipeline works).
 
-Bash
+Run the dashboard:
 streamlit run app.py
-Verdict Logic
-The system uses a fallback logic for its final verdict:
 
-If the YARA engine triggers a 'High' severity rule match -> Critical Malware.
+My "Verdict" Logic
+The system decide if the file is dangerous using this flow:
 
-If YARA is clean, but the Random Forest probability exceeds the configured threshold -> Malicious (Heuristics).
+If YARA find a match -> It's a Malware.
 
-Otherwise -> Safe.
+If YARA is clean but the ML model probability is high -> It's suspicious (Heuristics).
 
-Current Limitations & Future Work (TODO)
-As this is currently a Proof of Concept (PoC) for my evaluation:
+Anything else -> Safe.
 
-ML Dataset: The Random Forest model is trained on synthetic data to demonstrate the pipeline functionality. For a production environment, this needs to be retrained on a real-world dataset (e.g., EMBER dataset).
+Current Problems & To-Do list
+Since this is a Proof of Concept for my graduation/evaluation, there are some limits:
 
-YARA Ruleset: The current rules/ directory contains basic testing rules (like EICAR). It requires integration with updated threat intel feeds (like Neo23x0/signature-base) for actual threat hunting.
+The Dataset: The Random Forest is trained on fake data for now. I need to retrain it on a real dataset like EMBER later.
 
-Dynamic Analysis: Aegis is strictly a static analyzer. It cannot observe runtime behavior or unpack highly sophisticated multi-stage loaders dynamically.
+YARA Rules: I only put basic rules (EICAR) for testing. You need to add real threat intel rules to use it for real hunting.
 
-Disclaimer
-This project was developed for educational purposes and academic evaluation. Always perform malware triage in an isolated, secure environment (e.g., a disconnected virtual machine).
+Static only: This tool can't see what the malware does when it runs (Dynamic analysis). It only looks at the code and headers.
+
+Disclaimer: This is for educational use only! Always use a Virtual Machine when dealing with malware.
