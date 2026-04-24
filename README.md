@@ -51,4 +51,5 @@ YARA Rules: I only put basic rules (EICAR) for testing. You need to add real thr
 Static only: This tool can't see what the malware does when it runs (Dynamic analysis). It only looks at the code and headers.
 
 Disclaimer: This is for educational use only! Always use a Virtual Machine when dealing with malware.
+
 **The assistance of AI models was used in refining some errors and fixing the typo (English is not my first language) and that the code was written manually completely only the ideas and directions were from the AI.
