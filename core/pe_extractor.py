@@ -138,7 +138,7 @@ class PEExtractor:
         ui_metadata = {
             "hashes": self.get_hashes(),
             "mitre_hits": mitre_hits,
-            "datected_packers": list(set(detected_packers)),
+            "detected_packers": list(set(detected_packers)),
             "is_packed": bool(is_packed_heuristic)
         }
         return ml_features, ui_metadata

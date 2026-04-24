@@ -27,7 +27,7 @@ class MLPredictor:
 
     def predict(self, features_dict: dict) -> dict:
         ####
-        if not self.modelor or not self.scaler:
+        if not self.model or not self.scaler:
             return {
                 "status": "error",
                 "message": "ML Model not loaded.",
